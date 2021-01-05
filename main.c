@@ -35,15 +35,55 @@ static int my_perror(const char *func, GError *err)
     return EXIT_FAILURE;
 }
 
+static void read_callback(GObject *source_object, GAsyncResult *res, gpointer user_data);
+
+static void schedule_read(GUsbDevice *usb_dev)
+{
+    static const gsize BUFFER_SIZE = 64;
+    guint8 *data = (guint8 *)g_malloc(BUFFER_SIZE);
+
+    g_usb_device_interrupt_transfer_async(usb_dev, NZXT_GRID_ENDPOINT_ADDRESS_IN, data, BUFFER_SIZE, 0, NULL, read_callback, data);
+}
+
+static gboolean schedule_read_source_cb(gpointer user_data)
+{
+    schedule_read(G_USB_DEVICE(user_data));
+    return FALSE;
+}
+
+static void read_callback(GObject *source_object, GAsyncResult *res, gpointer user_data)
+{
+    GUsbDevice *usb_dev = G_USB_DEVICE(source_object);
+    g_autoptr(GError) err = NULL;
+    guint8 *data = (guint8 *)user_data;
+    gssize read_size = g_usb_device_interrupt_transfer_finish(usb_dev, res, &err);
+
+    if (read_size < 0) {
+        my_perror("g_usb_device_interrupt_transfer_async", err);
+        g_timeout_add_seconds(1, schedule_read_source_cb, usb_dev);
+        return;
+    }
+
+    if (data[0] != NZXT_GRID_STATUS_REPORT_ID || read_size != sizeof(struct nzxt_grid_status_report)) {
+        fprintf(stderr, "Unexpected report, id = %u, size = %zu\n", data[0], read_size);
+        schedule_read(usb_dev);
+        return;
+    }
+
+    struct nzxt_grid_status_report *status_report = (struct nzxt_grid_status_report *)data;
+    fprintf(stderr, "status: channel %u rpm=%u\n", status_report->channel, GUINT16_FROM_BE(status_report->rpm));
+    schedule_read(usb_dev);
+}
+
 int main(void)
 {
     g_autoptr(GError) err = NULL;
+    g_autoptr(GMainLoop) loop = NULL;
     g_autoptr(GUsbContext) usb_ctx = NULL;
     g_autoptr(GUsbDevice) usb_dev = NULL;
     g_autoptr(GUsbInterface) usb_iface = NULL;
 
-    guint8 data_in[64];
-    gsize data_in_size;
+    loop = g_main_loop_new(NULL, FALSE);
 
     usb_ctx = g_usb_context_new(&err);
     if (!usb_ctx)
@@ -63,18 +103,8 @@ int main(void)
     if (!g_usb_device_claim_interface(usb_dev, g_usb_interface_get_number(usb_iface), G_USB_DEVICE_CLAIM_INTERFACE_BIND_KERNEL_DRIVER, &err))
         return my_perror("g_usb_device_claim_interface", err);
 
-    for (;;) {
-        if (!g_usb_device_interrupt_transfer(usb_dev, NZXT_GRID_ENDPOINT_ADDRESS_IN, data_in, sizeof(data_in), &data_in_size, 0, NULL, &err))
-            return my_perror("g_usb_device_interrupt_transfer", err);
-
-        if (data_in[0] != NZXT_GRID_STATUS_REPORT_ID || data_in_size != sizeof(struct nzxt_grid_status_report)) {
-            fprintf(stderr, "Unexpected report, id = %u, size = %zu\n", data_in[0], data_in_size);
-            continue;
-        }
-
-        struct nzxt_grid_status_report *status_report = (struct nzxt_grid_status_report *)data_in;
-        fprintf(stderr, "status: channel %u rpm=%u\n", status_report->channel, GUINT16_FROM_BE(status_report->rpm));
-    }
+    schedule_read(usb_dev);
+    g_main_loop_run(loop);
 
     if (!g_usb_device_close(usb_dev, &err))
         return my_perror("g_usb_device_close", err);
