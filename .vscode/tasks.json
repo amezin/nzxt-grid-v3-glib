@@ -4,7 +4,7 @@
             "label": "meson",
             "type": "process",
             "command": "meson",
-            "args": ["setup", "build"],
+            "args": ["setup", "--native-file", "${workspaceFolder}/debug.ini", "build"],
             "group": "build",
             "problemMatcher": []
         },
@@ -12,7 +12,7 @@
             "label": "meson --reconfigure",
             "type": "process",
             "command": "meson",
-            "args": ["setup", "--reconfigure", "build"],
+            "args": ["setup", "--reconfigure", "--native-file", "${workspaceFolder}/debug.ini", "build"],
             "group": "build",
             "problemMatcher": []
         },
@@ -20,7 +20,7 @@
             "label": "meson --wipe",
             "type": "process",
             "command": "meson",
-            "args": ["setup", "--wipe", "build"],
+            "args": ["setup", "--wipe", "--native-file", "${workspaceFolder}/debug.ini", "build"],
             "group": "build",
             "problemMatcher": []
         },
