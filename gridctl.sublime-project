@@ -1,0 +1,77 @@
+{
+	"build_systems":
+	[
+		{
+			"cmd":
+			[
+				"meson",
+				"setup",
+				"--native-file",
+				"$project_path/debug.ini",
+				"build"
+			],
+			"name": "meson",
+			"variants":
+			[
+				{
+					"cmd":
+					[
+						"meson",
+						"setup",
+						"--reconfigure",
+						"--native-file",
+						"$project_path/debug.ini",
+						"build"
+					],
+					"name": "reconfigure"
+				},
+				{
+					"cmd":
+					[
+						"meson",
+						"setup",
+						"--wipe",
+						"--native-file",
+						"$project_path/debug.ini",
+						"build"
+					],
+					"name": "wipe"
+				},
+				{
+					"cmd":
+					[
+						"meson",
+						"compile",
+						"-C",
+						"build"
+					],
+					"name": "compile"
+				}
+			],
+			"working_dir": "$project_path"
+		}
+	],
+	"folders":
+	[
+		{
+			"path": "."
+		}
+	],
+	"settings":
+	{
+		"LSP":
+		{
+			"clangd":
+			{
+				"command":
+				[
+					"clangd",
+					"--compile-commands-dir=build",
+					"--background-index",
+					"--suggest-missing-includes"
+				],
+				"enabled": true
+			}
+		}
+	}
+}

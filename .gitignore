@@ -1,1 +1,4 @@
 /build/
+/.cache/
+/meson.build.user
+/*.sublime-workspace
