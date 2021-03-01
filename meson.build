@@ -10,10 +10,11 @@ project('gridctl', 'c',
 
 gnome = import('gnome')
 
-gio = dependency('gio-2.0', version : '>= 2.44.0')
-gusb = dependency('gusb', version : '>= 0.3.5')
-gudev = dependency('gudev-1.0')
+deps = [
+    dependency('gio-2.0'),
+    dependency('gio-unix-2.0'),
+    dependency('gudev-1.0')
+]
 
-executable('gridctl', 'main.c', dependencies : [gio, gusb])
-
-executable('enumerate', 'enumerate.c', dependencies : [gio, gudev])
+executable('gridctl', 'main.c', dependencies : deps)
+executable('enumerate', 'enumerate.c', dependencies : deps)
