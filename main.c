@@ -27,11 +27,24 @@ struct nzxt_grid_status_report {
 	guint8 firmware_version_major;
 	guint16 firmware_version_minor;
 	guint8 firmware_version_patch;
-	guint8 type : 2;
-	guint8 unknown3 : 2;
-	guint8 channel : 4;
+	guint8 channel_index_and_fan_type;
 	guint8 unknown4[5];
 } __attribute__((packed));
+
+static inline guint8 nzxt_grid_status_report_get_fan_type(const struct nzxt_grid_status_report *report)
+{
+    return report->channel_index_and_fan_type & 0x3;
+}
+
+static inline guint8 nzxt_grid_status_report_get_channel(const struct nzxt_grid_status_report *report)
+{
+    return report->channel_index_and_fan_type >> 4;
+}
+
+static inline guint16 nzxt_grid_status_report_get_rpm(const struct nzxt_grid_status_report *report)
+{
+    return GUINT16_FROM_BE(report->rpm);
+}
 
 static void read_callback(GObject *source_object, GAsyncResult *res, gpointer user_data);
 
@@ -69,7 +82,11 @@ static void read_callback(GObject *source_object, GAsyncResult *res, gpointer us
     }
 
     struct nzxt_grid_status_report *status_report = (struct nzxt_grid_status_report *)data;
-    g_message("status: channel %u rpm=%u", status_report->channel, GUINT16_FROM_BE(status_report->rpm));
+    g_message(
+        "status: channel %u rpm=%u",
+        nzxt_grid_status_report_get_channel(status_report),
+        nzxt_grid_status_report_get_rpm(status_report)
+    );
     schedule_read(stream);
 }
 
