@@ -1,0 +1,6 @@
+[wrap-git]
+directory=libffi
+url=https://gitlab.freedesktop.org/amezin/libffi.git
+push-url=git@gitlab.freedesktop.org:amezin/libffi.git
+revision=meson
+depth=1

@@ -5,10 +5,11 @@
 			"cmd":
 			[
 				"meson",
-				"setup",
-				"--native-file",
-				"debug.ini",
-				"build"
+				"--cross-file",
+				"linux-mingw.ini",
+				"--prefix",
+				"$project_path/build-mingw/install",
+				"build-mingw"
 			],
 			"name": "meson",
 			"working_dir": "$project_path"
@@ -19,9 +20,20 @@
 				"meson",
 				"compile",
 				"-C",
-				"build"
+				"build-mingw"
 			],
 			"name": "meson compile",
+			"working_dir": "$project_path"
+		},
+		{
+			"cmd":
+			[
+				"meson",
+				"install",
+				"-C",
+				"build-mingw"
+			],
+			"name": "meson install",
 			"working_dir": "$project_path"
 		}
 	],
@@ -40,7 +52,7 @@
 				"command":
 				[
 					"clangd",
-					"--compile-commands-dir=build",
+					"--compile-commands-dir=build-mingw",
 					"--background-index",
 					"--suggest-missing-includes",
 					"--header-insertion=never",

@@ -1,0 +1,40 @@
+BasedOnStyle: WebKit
+
+ColumnLimit: 100
+
+DeriveLineEnding: true
+UseCRLF: false
+
+AlignAfterOpenBracket: Align
+BinPackArguments: false
+AllowAllArgumentsOnNextLine: false
+BinPackParameters: false
+AllowAllParametersOfDeclarationOnNextLine: false
+
+AlwaysBreakAfterReturnType: TopLevel
+
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterControlStatement: MultiLine
+  AfterFunction: true
+
+PointerAlignment: Right
+
+InsertTrailingCommas: Wrapped
+
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<(std(align|arg|atomic|bool|def|int|io|lib|noreturn)|assert|complex|ctype|errno|fenv|float|inttypes|iso646|limits|locale|math|setjmp|signal|string|tgmath|threads|time|uchar|wchar|wctype)\.h>$'
+    Priority: 1
+
+  - Regex: '^<(gio/.*|glib.*|gobject.*)\.h>$'
+    Priority: 2
+
+  - Regex: '^<(wing/.*|gudev/.*)\.h>$'
+    Priority: 3
+
+  - Regex: '^<windows\.h>$'
+    Priority: 4
+
+  - Regex: '^<(hidsdi|setupapi)\.h>$'
+    Priority: 5

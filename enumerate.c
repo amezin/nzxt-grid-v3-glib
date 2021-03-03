@@ -1,8 +1,11 @@
 #include <stdio.h>
+
 #include <gio/gio.h>
+
 #include <gudev/gudev.h>
 
-static const char *ensure_nonnull(const char *value)
+static const char *
+ensure_nonnull(const char *value)
 {
     if (value == NULL)
         return "<null>";
@@ -10,10 +13,10 @@ static const char *ensure_nonnull(const char *value)
     return value;
 }
 
-static void print_device_info(GUdevDevice *dev, const char *indent)
+static void
+print_device_info(GUdevDevice *dev, const char *indent)
 {
-#define PRINT_FUNC_RESULT(f) \
-    printf("%s" #f "()=%s\n", indent, ensure_nonnull(f(dev)))
+#define PRINT_FUNC_RESULT(f) printf("%s" #f "()=%s\n", indent, ensure_nonnull(f(dev)))
 
     PRINT_FUNC_RESULT(g_udev_device_get_subsystem);
     PRINT_FUNC_RESULT(g_udev_device_get_devtype);
@@ -36,7 +39,8 @@ static void print_device_info(GUdevDevice *dev, const char *indent)
     print_device_info(parent, parent_indent);
 }
 
-int main(void)
+int
+main(void)
 {
     g_autoptr(GUdevClient) client = g_udev_client_new(NULL);
     g_autolist(GUdevDevice) devices = g_udev_client_query_by_subsystem(client, "hidraw");

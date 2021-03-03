@@ -1,4 +1,6 @@
 /build/
+/build-mingw/
 /.cache/
 /meson.build.user
 /*.sublime-workspace
+/subprojects/*/

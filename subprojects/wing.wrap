@@ -1,0 +1,9 @@
+[wrap-git]
+directory=wing
+url=https://gitlab.gnome.org/amezin/wing.git
+push-url=git@gitlab.gnome.org:amezin/wing.git
+revision=master
+depth=1
+
+[provide]
+wing = wing_dep

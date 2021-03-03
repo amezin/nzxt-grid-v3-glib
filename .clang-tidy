@@ -1,0 +1,2 @@
+Checks: 'clang-diagnostic-*,clang-analyzer-*,bugprone-*,concurrency-*,performance-*,portability-*,readability-*,misc-*'
+FormatStyle: file
