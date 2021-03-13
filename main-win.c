@@ -10,8 +10,7 @@
 #include <hidsdi.h>
 #include <setupapi.h>
 
-#include "sizedinputstream.h"
-#include <hidclass.h>
+#include "winhidinputstream.h"
 
 static const guint16 USB_VENDOR_ID_NZXT = 0x1e71;
 static const guint16 USB_PRODUCT_ID_NZXT_GRID_V3 = 0x1711;
@@ -285,12 +284,13 @@ open_device(const gchar *path)
         return NULL;
     }
 
-    GInputStream *base_stream = wing_input_stream_new(device, TRUE);
+    GInputStream *stream
+        = gridctl_win_hid_input_stream_new(device, TRUE, caps.InputReportByteLength);
+    device = INVALID_HANDLE_VALUE; /* for handle_cleanup() - handle ownership passed to stream */
 
     g_message("Device %s opened", path);
 
-    device = INVALID_HANDLE_VALUE;
-    return gridctl_sized_input_stream_new(base_stream, caps.InputReportByteLength);
+    return stream;
 }
 
 int

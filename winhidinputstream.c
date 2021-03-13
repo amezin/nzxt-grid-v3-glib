@@ -1,24 +1,24 @@
-#include "sizedinputstream.h"
+#include "winhidinputstream.h"
 
-struct _GridctlSizedInputStream {
-    GFilterInputStream parent_instance;
+struct _GridctlWinHidInputStream {
+    WingInputStream parent_instance;
 
-    gulong min_read_size;
+    gulong input_report_length;
 };
 
-G_DEFINE_TYPE(GridctlSizedInputStream, gridctl_sized_input_stream, G_TYPE_FILTER_INPUT_STREAM)
+G_DEFINE_TYPE(GridctlWinHidInputStream, gridctl_win_hid_input_stream, WING_TYPE_INPUT_STREAM)
 
-enum { PROP_0, PROP_MIN_READ_SIZE, PROP_COUNT };
+enum { PROP_0, PROP_INPUT_REPORT_LENGTH, PROP_COUNT };
 static GParamSpec *props[PROP_COUNT];
 
 static void
 set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *pspec)
 {
-    GridctlSizedInputStream *stream = GRIDCTL_SIZED_INPUT_STREAM(object);
+    GridctlWinHidInputStream *stream = GRIDCTL_WIN_HID_INPUT_STREAM(object);
 
     switch (prop_id) {
-    case PROP_MIN_READ_SIZE:
-        stream->min_read_size = g_value_get_ulong(value);
+    case PROP_INPUT_REPORT_LENGTH:
+        stream->input_report_length = g_value_get_ulong(value);
         break;
 
     default:
@@ -29,11 +29,11 @@ set_property(GObject *object, guint prop_id, const GValue *value, GParamSpec *ps
 static void
 get_property(GObject *object, guint prop_id, GValue *value, GParamSpec *pspec)
 {
-    GridctlSizedInputStream *stream = GRIDCTL_SIZED_INPUT_STREAM(object);
+    GridctlWinHidInputStream *stream = GRIDCTL_WIN_HID_INPUT_STREAM(object);
 
     switch (prop_id) {
-    case PROP_MIN_READ_SIZE:
-        g_value_set_ulong(value, stream->min_read_size);
+    case PROP_INPUT_REPORT_LENGTH:
+        g_value_set_ulong(value, stream->input_report_length);
         break;
 
     default:
@@ -50,16 +50,16 @@ struct SizedReadContext {
 
 static void
 sized_read_context_init(struct SizedReadContext *context,
-                        GridctlSizedInputStream *sized_stream,
+                        GridctlWinHidInputStream *sized_stream,
                         void *buffer,
                         gsize count)
 {
     context->orig_buffer = buffer;
     context->orig_count = count;
 
-    if (count < sized_stream->min_read_size) {
-        context->buffer = g_malloc0(sized_stream->min_read_size);
-        context->count = sized_stream->min_read_size;
+    if (count < sized_stream->input_report_length) {
+        context->buffer = g_malloc0(sized_stream->input_report_length);
+        context->count = sized_stream->input_report_length;
     } else {
         context->buffer = buffer;
         context->count = count;
@@ -98,7 +98,7 @@ sized_read_context_finish(struct SizedReadContext *context, gssize n_read)
 }
 
 static struct SizedReadContext *
-sized_read_context_new(GridctlSizedInputStream *sized_stream, void *buffer, gsize count)
+sized_read_context_new(GridctlWinHidInputStream *sized_stream, void *buffer, gsize count)
 {
     struct SizedReadContext *context = g_new(struct SizedReadContext, 1);
     sized_read_context_init(context, sized_stream, buffer, count);
@@ -121,15 +121,13 @@ sized_read_context_free(gpointer ptr)
 static gssize
 read_fn(GInputStream *stream, void *buffer, gsize count, GCancellable *cancellable, GError **error)
 {
-    GridctlSizedInputStream *sized_stream = GRIDCTL_SIZED_INPUT_STREAM(stream);
-    GFilterInputStream *filter_stream = G_FILTER_INPUT_STREAM(sized_stream);
-    GInputStream *base_stream = g_filter_input_stream_get_base_stream(filter_stream);
+    GridctlWinHidInputStream *sized_stream = GRIDCTL_WIN_HID_INPUT_STREAM(stream);
+    GInputStreamClass *base_class = G_INPUT_STREAM_CLASS(gridctl_win_hid_input_stream_parent_class);
 
     struct SizedReadContext context;
     sized_read_context_init(&context, sized_stream, buffer, count);
 
-    gssize n_read
-        = g_input_stream_read(base_stream, context.buffer, context.count, cancellable, error);
+    gssize n_read = base_class->read_fn(stream, context.buffer, context.count, cancellable, error);
 
     return sized_read_context_finish(&context, n_read);
 }
@@ -137,14 +135,15 @@ read_fn(GInputStream *stream, void *buffer, gsize count, GCancellable *cancellab
 static void
 read_async_callback(GObject *source_object, GAsyncResult *result, gpointer user_data)
 {
-    GInputStream *base_stream = G_INPUT_STREAM(source_object);
+    GInputStream *stream = G_INPUT_STREAM(source_object);
+    GInputStreamClass *base_class = G_INPUT_STREAM_CLASS(gridctl_win_hid_input_stream_parent_class);
 
     g_autoptr(GTask) task = user_data;
     struct SizedReadContext *context = g_task_get_task_data(task);
 
     GError *error = NULL;
 
-    gssize n_read = g_input_stream_read_finish(base_stream, result, &error);
+    gssize n_read = base_class->read_finish(stream, result, &error);
     n_read = sized_read_context_finish(context, n_read);
 
     if (n_read < 0) {
@@ -163,9 +162,8 @@ read_async(GInputStream *stream,
            GAsyncReadyCallback callback,
            gpointer user_data)
 {
-    GridctlSizedInputStream *sized_stream = GRIDCTL_SIZED_INPUT_STREAM(stream);
-    GFilterInputStream *filter_stream = G_FILTER_INPUT_STREAM(sized_stream);
-    GInputStream *base_stream = g_filter_input_stream_get_base_stream(filter_stream);
+    GridctlWinHidInputStream *sized_stream = GRIDCTL_WIN_HID_INPUT_STREAM(stream);
+    GInputStreamClass *base_class = G_INPUT_STREAM_CLASS(gridctl_win_hid_input_stream_parent_class);
 
     GTask *task = g_task_new(stream, cancellable, callback, user_data);
     g_task_set_source_tag(task, read_async);
@@ -173,13 +171,13 @@ read_async(GInputStream *stream,
     struct SizedReadContext *context = sized_read_context_new(sized_stream, buffer, count);
     g_task_set_task_data(task, context, sized_read_context_free);
 
-    g_input_stream_read_async(base_stream, /* GInputStream *stream */
-                              context->buffer, /* void *buffer */
-                              context->count, /* gsize count */
-                              io_priority, /* int io_priority */
-                              cancellable, /* GCancellable *cancellable */
-                              read_async_callback, /* GAsyncReadyCallback callback */
-                              task /* gpointer user_data */);
+    base_class->read_async(stream, /* GInputStream *stream */
+                           context->buffer, /* void *buffer */
+                           context->count, /* gsize count */
+                           io_priority, /* int io_priority */
+                           cancellable, /* GCancellable *cancellable */
+                           read_async_callback, /* GAsyncReadyCallback callback */
+                           task /* gpointer user_data */);
 }
 
 static gssize
@@ -190,7 +188,7 @@ read_finish(GInputStream *stream, GAsyncResult *result, GError **error)
 }
 
 static void
-gridctl_sized_input_stream_class_init(GridctlSizedInputStreamClass *class)
+gridctl_win_hid_input_stream_class_init(GridctlWinHidInputStreamClass *class)
 {
     GObjectClass *gobject_class = G_OBJECT_CLASS(class);
     gobject_class->get_property = get_property;
@@ -201,10 +199,10 @@ gridctl_sized_input_stream_class_init(GridctlSizedInputStreamClass *class)
     input_stream_class->read_async = read_async;
     input_stream_class->read_finish = read_finish;
 
-    props[PROP_MIN_READ_SIZE] = g_param_spec_ulong(
-        "min-read-size", /* const gchar *name */
-        "Minimum read size", /* const gchar *nick */
-        "Minimum buffer size for read operation", /* const gchar *blurb */
+    props[PROP_INPUT_REPORT_LENGTH] = g_param_spec_ulong(
+        "input-report-length", /* const gchar *name */
+        "Input Report Length", /* const gchar *nick */
+        "Maximum size, in bytes, of all the input reports", /* const gchar *blurb */
         0, /* gulong minimum */
         G_MAXULONG, /* gulong maximum */
         0, /* gulong default_value */
@@ -214,17 +212,19 @@ gridctl_sized_input_stream_class_init(GridctlSizedInputStreamClass *class)
 }
 
 static void
-gridctl_sized_input_stream_init(GridctlSizedInputStream *obj)
+gridctl_win_hid_input_stream_init(GridctlWinHidInputStream *obj)
 {
 }
 
 GInputStream *
-gridctl_sized_input_stream_new(GInputStream *base_stream, gulong min_read_size)
+gridctl_win_hid_input_stream_new(void *handle, gboolean close_handle, gulong input_report_length)
 {
-    return g_object_new(GRIDCTL_TYPE_SIZED_INPUT_STREAM,
-                        "base-stream",
-                        base_stream,
-                        "min-read-size",
-                        min_read_size,
+    return g_object_new(GRIDCTL_TYPE_WIN_HID_INPUT_STREAM,
+                        "handle",
+                        handle,
+                        "close-handle",
+                        close_handle,
+                        "input-report-length",
+                        input_report_length,
                         NULL);
 }
