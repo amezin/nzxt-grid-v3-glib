@@ -10,14 +10,13 @@
 #include <hidsdi.h>
 #include <setupapi.h>
 
+#include "sizedinputstream.h"
 #include <hidclass.h>
 
 static const guint16 USB_VENDOR_ID_NZXT = 0x1e71;
 static const guint16 USB_PRODUCT_ID_NZXT_GRID_V3 = 0x1711;
 
 static const guint8 NZXT_GRID_STATUS_REPORT_ID = 4;
-
-static USHORT input_report_size;
 
 struct nzxt_grid_status_report {
     guint8 report_id;
@@ -59,11 +58,12 @@ read_callback(GObject *source_object, GAsyncResult *res, gpointer user_data);
 static void
 schedule_read(GInputStream *stream)
 {
-    void *data = g_malloc(input_report_size);
+    static const gsize BUFFER_SIZE = sizeof(struct nzxt_grid_status_report);
+    void *data = g_malloc(BUFFER_SIZE);
 
     g_input_stream_read_async(stream,
                               data,
-                              input_report_size,
+                              BUFFER_SIZE,
                               G_PRIORITY_DEFAULT,
                               NULL,
                               read_callback,
@@ -248,14 +248,6 @@ hid_preparsed_data_cleanup(PHIDP_PREPARSED_DATA *data)
     }
 }
 
-static HANDLE
-steal_handle(HANDLE *value)
-{
-    HANDLE tmp = *value;
-    *value = INVALID_HANDLE_VALUE;
-    return tmp;
-}
-
 static GInputStream *
 open_device(const gchar *path)
 {
@@ -293,11 +285,12 @@ open_device(const gchar *path)
         return NULL;
     }
 
-    input_report_size = caps.InputReportByteLength;
+    GInputStream *base_stream = wing_input_stream_new(device, TRUE);
 
     g_message("Device %s opened", path);
 
-    return wing_input_stream_new(steal_handle(&device), TRUE);
+    device = INVALID_HANDLE_VALUE;
+    return gridctl_sized_input_stream_new(base_stream, caps.InputReportByteLength);
 }
 
 int
