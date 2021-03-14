@@ -7,27 +7,8 @@
 #include <hidsdi.h>
 #include <setupapi.h>
 
-static void
-device_info_list_cleanup(HDEVINFO *list)
-{
-    if (*list == INVALID_HANDLE_VALUE) {
-        return;
-    }
-
-    SetupDiDestroyDeviceInfoList(*list);
-    *list = INVALID_HANDLE_VALUE;
-}
-
-static void
-handle_cleanup(HANDLE *handle)
-{
-    if (*handle == INVALID_HANDLE_VALUE) {
-        return;
-    }
-
-    CloseHandle(*handle);
-    *handle = INVALID_HANDLE_VALUE;
-}
+G_DEFINE_AUTO_CLEANUP_FREE_FUNC(HANDLE, CloseHandle, INVALID_HANDLE_VALUE);
+G_DEFINE_AUTO_CLEANUP_FREE_FUNC(HDEVINFO, SetupDiDestroyDeviceInfoList, INVALID_HANDLE_VALUE);
 
 static gchar *
 wchar_t_to_utf8(const wchar_t *str)
@@ -46,7 +27,7 @@ main(void)
     GUID hid_guid;
     HidD_GetHidGuid(&hid_guid);
 
-    __attribute__((cleanup(device_info_list_cleanup))) HDEVINFO device_info_list
+    g_auto(HDEVINFO) device_info_list
         = SetupDiGetClassDevsA(&hid_guid, /* CONST GUID *ClassGuid */
                                NULL, /* PCSTR Enumerator */
                                NULL, /* HWND hwndParent */
@@ -105,7 +86,7 @@ main(void)
         g_autofree gchar *device_path = wchar_t_to_utf8(device_interface_detail_data->DevicePath);
         g_message("Found device: %s", device_path);
 
-        __attribute__((cleanup(handle_cleanup))) HANDLE device
+        g_auto(HANDLE) device
             = CreateFileW(device_interface_detail_data->DevicePath, /* LPCSTR lpFileName */
                           0, /* DWORD dwDesiredAccess */
                           FILE_SHARE_READ | FILE_SHARE_WRITE, /* DWORD dwShareMode */

@@ -13,6 +13,9 @@
 #include "nzxtgridproto.h"
 #include "winhidinputstream.h"
 
+G_DEFINE_AUTO_CLEANUP_FREE_FUNC(HANDLE, CloseHandle, INVALID_HANDLE_VALUE);
+G_DEFINE_AUTO_CLEANUP_FREE_FUNC(HDEVINFO, SetupDiDestroyDeviceInfoList, INVALID_HANDLE_VALUE);
+
 static void
 read_callback(GObject *source_object, GAsyncResult *res, gpointer user_data);
 
@@ -66,28 +69,6 @@ read_callback(GObject *source_object, GAsyncResult *res, gpointer user_data)
     schedule_read(stream);
 }
 
-static void
-device_info_list_cleanup(HDEVINFO *list)
-{
-    if (*list == INVALID_HANDLE_VALUE) {
-        return;
-    }
-
-    SetupDiDestroyDeviceInfoList(*list);
-    *list = INVALID_HANDLE_VALUE;
-}
-
-static void
-handle_cleanup(HANDLE *handle)
-{
-    if (*handle == INVALID_HANDLE_VALUE) {
-        return;
-    }
-
-    CloseHandle(*handle);
-    *handle = INVALID_HANDLE_VALUE;
-}
-
 static gchar *
 wchar_t_to_utf8(const wchar_t *str)
 {
@@ -105,7 +86,7 @@ find_grid_device()
     GUID hid_guid;
     HidD_GetHidGuid(&hid_guid);
 
-    __attribute__((cleanup(device_info_list_cleanup))) HDEVINFO device_info_list
+    g_auto(HDEVINFO) device_info_list
         = SetupDiGetClassDevsA(&hid_guid, /* CONST GUID *ClassGuid */
                                NULL, /* PCSTR Enumerator */
                                NULL, /* HWND hwndParent */
@@ -161,7 +142,7 @@ find_grid_device()
             continue;
         }
 
-        __attribute__((cleanup(handle_cleanup))) HANDLE device
+        g_auto(HANDLE) device
             = CreateFileW(device_interface_detail_data->DevicePath, /* LPCSTR lpFileName */
                           0, /* DWORD dwDesiredAccess */
                           FILE_SHARE_READ | FILE_SHARE_WRITE, /* DWORD dwShareMode */
@@ -219,14 +200,13 @@ open_device(const gchar *path)
         return NULL;
     }
 
-    __attribute__((cleanup(handle_cleanup))) HANDLE device
-        = CreateFileW(path_wchar, /* LPCSTR lpFileName */
-                      GENERIC_READ | GENERIC_WRITE, /* DWORD dwDesiredAccess */
-                      FILE_SHARE_READ | FILE_SHARE_WRITE, /* DWORD dwShareMode */
-                      NULL, /* LPSECURITY_ATTRIBUTES lpSecurityAttributes */
-                      OPEN_EXISTING, /* DWORD dwCreationDisposition */
-                      FILE_FLAG_OVERLAPPED, /* DWORD dwFlagsAndAttributes */
-                      NULL /* HANDLE hTemplateFile */);
+    g_auto(HANDLE) device = CreateFileW(path_wchar, /* LPCSTR lpFileName */
+                                        GENERIC_READ | GENERIC_WRITE, /* DWORD dwDesiredAccess */
+                                        FILE_SHARE_READ | FILE_SHARE_WRITE, /* DWORD dwShareMode */
+                                        NULL, /* LPSECURITY_ATTRIBUTES lpSecurityAttributes */
+                                        OPEN_EXISTING, /* DWORD dwCreationDisposition */
+                                        FILE_FLAG_OVERLAPPED, /* DWORD dwFlagsAndAttributes */
+                                        NULL /* HANDLE hTemplateFile */);
     if (device == INVALID_HANDLE_VALUE) {
         g_autofree gchar *err_message = g_win32_error_message(GetLastError());
         g_warning("CreateFileW: %s", err_message);
