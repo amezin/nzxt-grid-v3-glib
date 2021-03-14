@@ -8,8 +8,6 @@ struct _GridctlWinHidInputStream {
     void *allocated_buffer;
 
     void *buffer;
-    gsize count;
-
     void *orig_buffer;
     gsize orig_count;
 };
@@ -59,23 +57,23 @@ finalize(GObject *object)
     G_OBJECT_CLASS(gridctl_win_hid_input_stream_parent_class)->finalize(object);
 }
 
-static void
+static gsize
 read_init(GridctlWinHidInputStream *win_hid_stream, void *buffer, gsize count)
 {
     win_hid_stream->orig_buffer = buffer;
     win_hid_stream->orig_count = count;
 
-    if (count < win_hid_stream->input_report_length) {
-        if (!win_hid_stream->allocated_buffer) {
-            win_hid_stream->allocated_buffer = g_malloc(win_hid_stream->input_report_length);
-        }
-
-        win_hid_stream->buffer = win_hid_stream->allocated_buffer;
-        win_hid_stream->count = win_hid_stream->input_report_length;
-    } else {
+    if (count >= win_hid_stream->input_report_length) {
         win_hid_stream->buffer = buffer;
-        win_hid_stream->count = count;
+        return count;
     }
+
+    if (!win_hid_stream->allocated_buffer) {
+        win_hid_stream->allocated_buffer = g_malloc(win_hid_stream->input_report_length);
+    }
+
+    win_hid_stream->buffer = win_hid_stream->allocated_buffer;
+    return win_hid_stream->input_report_length;
 }
 
 static gssize
@@ -100,11 +98,11 @@ read_fn(GInputStream *stream, void *buffer, gsize count, GCancellable *cancellab
     GridctlWinHidInputStream *win_hid_stream = GRIDCTL_WIN_HID_INPUT_STREAM(stream);
     GInputStreamClass *base_class = G_INPUT_STREAM_CLASS(gridctl_win_hid_input_stream_parent_class);
 
-    read_init(win_hid_stream, buffer, count);
+    gsize real_count = read_init(win_hid_stream, buffer, count);
 
     gssize n_read = base_class->read_fn(stream, /* GInputStream *stream */
                                         win_hid_stream->buffer, /* void *buffer */
-                                        win_hid_stream->count, /* gsize count */
+                                        real_count, /* gsize count */
                                         cancellable, /* GCancellable *cancellable */
                                         error /* GError **error */);
 
@@ -146,11 +144,11 @@ read_async(GInputStream *stream,
     GTask *task = g_task_new(stream, cancellable, callback, user_data);
     g_task_set_source_tag(task, read_async);
 
-    read_init(win_hid_stream, buffer, count);
+    gsize real_count = read_init(win_hid_stream, buffer, count);
 
     base_class->read_async(stream, /* GInputStream *stream */
                            win_hid_stream->buffer, /* void *buffer */
-                           win_hid_stream->count, /* gsize count */
+                           real_count, /* gsize count */
                            io_priority, /* int io_priority */
                            cancellable, /* GCancellable *cancellable */
                            read_async_callback, /* GAsyncReadyCallback callback */
