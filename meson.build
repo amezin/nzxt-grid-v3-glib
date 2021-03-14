@@ -28,9 +28,9 @@ else
 endif
 
 if host_machine.system() == 'windows'
-    executable('gridctl', 'main-win.c', 'winhidinputstream.c', 'winhidinputstream.h', dependencies : deps, install : true)
+    executable('gridctl', 'main-win.c', 'nzxtgridproto.h', 'winhidinputstream.c', 'winhidinputstream.h', dependencies : deps, install : true)
     executable('enumerate', 'enumerate-win.c', dependencies : deps, install : true)
 else
-    executable('gridctl', 'main.c', dependencies : deps, install : true)
+    executable('gridctl', 'main.c', 'nzxtgridproto.h', dependencies : deps, install : true)
     executable('enumerate', 'enumerate.c', dependencies : deps, install : true)
 endif
