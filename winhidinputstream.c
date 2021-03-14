@@ -60,6 +60,10 @@ finalize(GObject *object)
 static gsize
 read_init(GridctlWinHidInputStream *win_hid_stream, void *buffer, gsize count)
 {
+    g_return_val_if_fail(win_hid_stream->buffer == NULL, 0);
+    g_return_val_if_fail(win_hid_stream->orig_buffer == NULL, 0);
+    g_return_val_if_fail(win_hid_stream->orig_count == 0, 0);
+
     win_hid_stream->orig_buffer = buffer;
     win_hid_stream->orig_count = count;
 
@@ -76,10 +80,22 @@ read_init(GridctlWinHidInputStream *win_hid_stream, void *buffer, gsize count)
     return win_hid_stream->input_report_length;
 }
 
+static void
+read_reset(GridctlWinHidInputStream *win_hid_stream)
+{
+    win_hid_stream->buffer = NULL;
+    win_hid_stream->orig_buffer = NULL;
+    win_hid_stream->orig_count = 0;
+}
+
 static gssize
 read_complete(GridctlWinHidInputStream *win_hid_stream, gssize n_read)
 {
+    g_return_val_if_fail(win_hid_stream->buffer != NULL, -1);
+    g_return_val_if_fail(win_hid_stream->orig_buffer != NULL, -1);
+
     if (n_read <= 0 || win_hid_stream->buffer == win_hid_stream->orig_buffer) {
+        read_reset(win_hid_stream);
         return n_read;
     }
 
@@ -89,6 +105,7 @@ read_complete(GridctlWinHidInputStream *win_hid_stream, gssize n_read)
     }
 
     memcpy(win_hid_stream->orig_buffer, win_hid_stream->buffer, u_n_read);
+    read_reset(win_hid_stream);
     return (gssize)u_n_read;
 }
 
