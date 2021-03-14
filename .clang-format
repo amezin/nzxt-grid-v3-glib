@@ -38,3 +38,9 @@ IncludeCategories:
 
   - Regex: '^<(hidsdi|setupapi)\.h>$'
     Priority: 5
+
+  - Regex: '^<.*>$'
+    Priority: 6
+
+  - Regex: '^".*"$'
+    Priority: 7
