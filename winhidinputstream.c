@@ -94,7 +94,25 @@ read_complete(GridctlWinHidInputStream *win_hid_stream, gssize n_read)
     g_return_val_if_fail(win_hid_stream->buffer != NULL, -1);
     g_return_val_if_fail(win_hid_stream->orig_buffer != NULL, -1);
 
-    if (n_read <= 0 || win_hid_stream->buffer == win_hid_stream->orig_buffer) {
+    if (n_read <= 0) {
+        read_reset(win_hid_stream);
+        return n_read;
+    }
+
+    gboolean can_use_memcpy = (win_hid_stream->buffer != win_hid_stream->orig_buffer);
+
+    if (*(guint8 *)win_hid_stream->buffer == 0) {
+        /* https://github.com/libusb/hidapi/blob/0ea5e9502f31a1e4dbc71567c0f9a781930f1d38/windows/hid.c#L770
+         *
+         * If report numbers aren't being used, but Windows sticks a report number (0x0) on the
+         * beginning of the report anyway. To make this work like the other platforms, and to make
+         * it work more like the HID spec, we'll skip over this byte.
+         */
+        win_hid_stream->buffer = win_hid_stream->buffer + 1;
+        n_read -= 1;
+    }
+
+    if (win_hid_stream->buffer == win_hid_stream->orig_buffer || n_read == 0) {
         read_reset(win_hid_stream);
         return n_read;
     }
@@ -104,7 +122,12 @@ read_complete(GridctlWinHidInputStream *win_hid_stream, gssize n_read)
         u_n_read = win_hid_stream->orig_count;
     }
 
-    memcpy(win_hid_stream->orig_buffer, win_hid_stream->buffer, u_n_read);
+    if (can_use_memcpy) {
+        memcpy(win_hid_stream->orig_buffer, win_hid_stream->buffer, u_n_read);
+    } else {
+        memmove(win_hid_stream->orig_buffer, win_hid_stream->buffer, u_n_read);
+    }
+
     read_reset(win_hid_stream);
     return (gssize)u_n_read;
 }
